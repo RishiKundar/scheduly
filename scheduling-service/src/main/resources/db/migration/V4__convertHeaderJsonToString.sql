@@ -1,0 +1,1 @@
+ALTER TABLE job_scheduler_clean.jobs ALTER COLUMN headers TYPE text USING headers::text;

@@ -1,0 +1,14 @@
+node_modules/
+frontend/dist/
+
+target/
+*.jar
+*.war
+
+
+.idea/
+.vscode/
+*.iml
+
+
+.env

@@ -37,60 +37,54 @@ public class JobExecutor {
     private final EncryptionUtil encryptionUtil;
 
     public void execute(UUID executionId){
-        Integer attempts = jobAttemptRepository.countByExecutionId(executionId);
-        JobAttempt jobAttempt = new JobAttempt();
-        jobAttempt.setExecutionId(executionId);
-        jobAttempt.setAttemptNumber(attempts + 1);
-        jobAttempt.setStartedAt(Instant.now());
         Optional<JobExecution> optionalJobExecution = jobExecutionRepository.findById(executionId);
         if(optionalJobExecution.isPresent()){
             JobExecution jobExecution = optionalJobExecution.get();
-            Optional<Job> optionalJob = jobRepository.findById(jobExecution.getJobId());
-            if(optionalJob.isPresent()){
-                Job job = optionalJob.get();
-                String url = job.getTargetUrl();
-                JsonNode headers = getHeader(job.getHeaders());
-                String httpMethod = job.getHttpMethod();
-                String payload = job.getPayload();
-                HttpMethod method = HttpMethod.valueOf(httpMethod.toUpperCase());
-                HttpHeaders httpHeaders = new HttpHeaders();
-                if (headers != null && headers.isObject()) {
-                    headers.fields().forEachRemaining(entry ->
-                            httpHeaders.set(entry.getKey(),entry.getValue().asText()));
-                }
-                HttpEntity<String> requestEntity = new HttpEntity<>(payload,httpHeaders);
-                try{
-                    jobAttemptRepository.save(jobAttempt);
-                    ResponseEntity<String> response = restTemplate.exchange(url,method,requestEntity,String.class);
-                    jobExecution.setStatus("SUCCESS");
-                    jobAttempt.setEndedAt(Instant.now());
-                    jobAttempt.setHttpStatusCode(response.getStatusCode().value());
-                    jobAttempt.setResponseBody(response.getBody());
-                } catch (RestClientResponseException e) {
-                    log.error("HTTP request failed with status: {}", e.getStatusCode());
-                    handleFailure(jobExecution,jobAttempt,job);
-                    jobAttempt.setEndedAt(Instant.now());
-                    jobAttempt.setHttpStatusCode(e.getStatusCode().value());
-                    jobAttempt.setResponseBody(e.getMessage());
-                } catch (Exception e){
-                    log.error("Network error executing job: {}", e.getMessage());
-                    handleFailure(jobExecution,jobAttempt,job);
-                    jobAttempt.setEndedAt(Instant.now());
-                    jobAttempt.setHttpStatusCode(500);
-                    jobAttempt.setResponseBody(e.getMessage());
-                }finally {
-                    jobExecution.setCompletedAt(Instant.now());
-                    jobExecutionRepository.save(jobExecution);
-                    jobAttemptRepository.save(jobAttempt);
-                }
-            }else{
-                // No Job was found
-                log.warn("No Jobs were found for the executionId : {}", executionId);
-                return;
+            Job job = jobExecution.getJob();
+            Integer attempts = jobAttemptRepository.countByJobExecution_Id(executionId);
+            JobAttempt jobAttempt = new JobAttempt();
+            jobAttempt.setJobExecution(jobExecution);
+            jobAttempt.setAttemptNumber(attempts + 1);
+            jobAttempt.setStartedAt(Instant.now());
+
+            String url = job.getTargetUrl();
+            JsonNode headers = getHeader(job.getHeaders());
+            String httpMethod = job.getHttpMethod();
+            String payload = job.getPayload();
+            HttpMethod method = HttpMethod.valueOf(httpMethod.toUpperCase());
+            HttpHeaders httpHeaders = new HttpHeaders();
+            if (headers != null && headers.isObject()) {
+                headers.fields().forEachRemaining(entry ->
+                        httpHeaders.set(entry.getKey(),entry.getValue().asText()));
+            }
+            HttpEntity<String> requestEntity = new HttpEntity<>(payload,httpHeaders);
+            try{
+                jobAttemptRepository.save(jobAttempt);
+                ResponseEntity<String> response = restTemplate.exchange(url,method,requestEntity,String.class);
+                jobExecution.setStatus("SUCCESS");
+                jobAttempt.setEndedAt(Instant.now());
+                jobAttempt.setHttpStatusCode(response.getStatusCode().value());
+                jobAttempt.setResponseBody(response.getBody());
+            } catch (RestClientResponseException e) {
+                log.error("HTTP request failed with status: {}", e.getStatusCode());
+                handleFailure(jobExecution,jobAttempt,job);
+                jobAttempt.setEndedAt(Instant.now());
+                jobAttempt.setHttpStatusCode(e.getStatusCode().value());
+                jobAttempt.setResponseBody(e.getMessage());
+            } catch (Exception e){
+                log.error("Network error executing job: {}", e.getMessage());
+                handleFailure(jobExecution,jobAttempt,job);
+                jobAttempt.setEndedAt(Instant.now());
+                jobAttempt.setHttpStatusCode(500);
+                jobAttempt.setResponseBody(e.getMessage());
+            }finally {
+                jobExecution.setCompletedAt(Instant.now());
+                jobExecutionRepository.save(jobExecution);
+                jobAttemptRepository.save(jobAttempt);
             }
         }else{
-            // No Job Execution was present
-            log.warn("No Execution Id was found in the Database : {} ", executionId);
+            // No Job was found
+            log.warn("No Jobs were found for the executionId : {}", executionId);
             return;
         }
     }

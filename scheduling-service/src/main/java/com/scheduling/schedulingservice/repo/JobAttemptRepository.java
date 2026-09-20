@@ -9,5 +9,5 @@ import java.util.UUID;
 @Repository
 public interface JobAttemptRepository extends JpaRepository<JobAttempt, UUID> {
 
-    Integer countByExecutionId(UUID executionId);
+    Integer countByJobExecution_Id(UUID executionId);
 }

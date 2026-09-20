@@ -4,8 +4,12 @@ package com.scheduling.schedulingservice.service;
 import com.scheduling.schedulingservice.dto.JobRequest;
 import com.scheduling.schedulingservice.dto.JobResponseDto;
 import com.scheduling.schedulingservice.entity.Job;
+import com.scheduling.schedulingservice.entity.JobExecution;
 import com.scheduling.schedulingservice.entity.User;
+import com.scheduling.schedulingservice.enums.JobStatus;
+import com.scheduling.schedulingservice.enums.ScheduledType;
 import com.scheduling.schedulingservice.exception.JobException;
+import com.scheduling.schedulingservice.repo.JobExecutionRepository;
 import com.scheduling.schedulingservice.repo.JobRepository;
 import com.scheduling.schedulingservice.repo.UserRepository;
 import com.scheduling.schedulingservice.util.EncryptionUtil;
@@ -28,7 +32,7 @@ public class JobService {
 
     private final SsrfValidator ssrfValidator;
     private final JobRepository jobRepository;
-    private final com.scheduling.schedulingservice.repo.JobExecutionRepository jobExecutionRepository;
+    private final JobExecutionRepository jobExecutionRepository;
     private final UserRepository userRepository;
     private final EncryptionUtil encryptionUtil;
 
@@ -43,17 +47,26 @@ public class JobService {
         Job job = new Job();
         job.setName(jobRequest.name());
         job.setUserId(userId);
-        job.setStatus("ACTIVE");
+        job.setStatus(JobStatus.ACTIVE);
         job.setTargetUrl(jobRequest.targetUrl());
         job.setHttpMethod(jobRequest.httpMethod());
         job.setHeaders(encrypt(jobRequest.headers()));
         job.setPayload(jobRequest.payload());
-        job.setScheduleType(jobRequest.scheduleType());
+        job.setScheduleType(fetchJobType(jobRequest.scheduleType()));
         job.setCronExpression(jobRequest.cronExpression());
         job.setTimezone(jobRequest.timezone() != null ? jobRequest.timezone() : Instant.now(Clock.systemUTC()).toString());
         job.setNextExecutionAt(jobRequest.nextExecutionAt() != null ? jobRequest.nextExecutionAt() : Instant.now(Clock.systemUTC()));
         job.setMaxRetries(jobRequest.maxRetries());
         jobRepository.save(job);
+    }
+
+    private ScheduledType fetchJobType(String jobType){
+        if(jobType.contains("CRON")){
+            return ScheduledType.CRON;
+        }else if (jobType.contains("ONE_TIME")){
+            return ScheduledType.ONE_TIME;
+        }
+        return null;
     }
 
     private String encrypt(String headers){
@@ -72,16 +85,37 @@ public class JobService {
         return jobList.stream().map(job -> new JobResponseDto(
                 job.getId().toString(),
                 job.getName(),
-                job.getStatus(),
+                job.getStatus().toString(),
                 job.getTargetUrl(),
                 job.getHttpMethod(),
-                job.getHeaders().toString(),
+                job.getHeaders(),
                 job.getPayload(),
-                job.getScheduleType(),
+                job.getScheduleType().toString(),
                 job.getCronExpression(),
                 job.getNextExecutionAt(),
                 job.getMaxRetries()
-        )).collect(Collectors.toList());
+        )).toList();
+    }
+
+    public JobResponseDto getJobById(UUID jobId) {
+        Job job = jobRepository.findById(jobId)
+            .orElseThrow(() -> new JobException("Job not found"));
+        if (!job.getUserId().equals(getCurrentUserID())) {
+            throw new JobException("Unauthorized to view this job");
+        }
+        return new JobResponseDto(
+                job.getId().toString(),
+                job.getName(),
+                job.getStatus().toString(),
+                job.getTargetUrl(),
+                job.getHttpMethod(),
+                job.getHeaders(),
+                job.getPayload(),
+                job.getScheduleType().toString(),
+                job.getCronExpression(),
+                job.getNextExecutionAt(),
+                job.getMaxRetries()
+        );
     }
 
     public String getCurrentUsername(){
@@ -98,17 +132,19 @@ public class JobService {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new JobException("Job not found"));
         if (!job.getUserId().equals(getCurrentUserID())) {
-            throw new JobException("Unauthorized to delete this job");
+            throw new JobException("Unauthorized to view this job");
         }
-        jobRepository.delete(job);
+       job.setStatus(JobStatus.DELETED);
+       job.setMaxRetries(1);
+       jobRepository.save(job);
     }
 
-    public List<com.scheduling.schedulingservice.entity.JobExecution> getJobExecutions(UUID jobId) {
+    public List<JobExecution> getJobExecutions(UUID jobId) {
         Job job = jobRepository.findById(jobId)
             .orElseThrow(() -> new JobException("Job not found"));
         if (!job.getUserId().equals(getCurrentUserID())) {
             throw new JobException("Unauthorized to view this job");
         }
-        return jobExecutionRepository.findByJobIdOrderByScheduledForDesc(jobId);
+        return jobExecutionRepository.findByJob_IdOrderByScheduledForDesc(jobId);
     }
 }

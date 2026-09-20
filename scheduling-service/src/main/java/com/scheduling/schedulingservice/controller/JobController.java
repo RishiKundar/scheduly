@@ -35,6 +35,11 @@ public class JobController {
         return ResponseEntity.ok("Job Deleted");
     }
 
+    @GetMapping("/jobs/{id}")
+    public ResponseEntity<JobResponseDto> getJobById(@PathVariable UUID id) {
+        return ResponseEntity.ok(jobService.getJobById(id));
+    }
+
     @GetMapping("/jobs/{id}/executions")
     public ResponseEntity<List<com.scheduling.schedulingservice.entity.JobExecution>> getJobExecutions(@PathVariable UUID id) {
         return ResponseEntity.ok(jobService.getJobExecutions(id));

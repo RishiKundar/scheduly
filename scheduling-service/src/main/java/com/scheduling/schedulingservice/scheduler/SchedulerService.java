@@ -4,6 +4,7 @@ package com.scheduling.schedulingservice.scheduler;
 import com.scheduling.schedulingservice.entity.Job;
 import com.scheduling.schedulingservice.entity.JobExecution;
 import com.scheduling.schedulingservice.entity.OutBoxEvent;
+import com.scheduling.schedulingservice.enums.JobStatus;
 import com.scheduling.schedulingservice.repo.JobExecutionRepository;
 import com.scheduling.schedulingservice.repo.JobRepository;
 
@@ -41,7 +42,7 @@ public class SchedulerService {
 
         for(Job job : unclaimedJobsList){
             JobExecution jobExecution = new JobExecution();
-            jobExecution.setJobId(job.getId());
+            jobExecution.setJob(jobExecution.getJob());
             jobExecution.setStatus("QUEUED");
             jobExecution.setScheduledFor(job.getNextExecutionAt());
             jobExecutionRepository.save(jobExecution);
@@ -55,7 +56,19 @@ public class SchedulerService {
         }
 
         for(Job job : unclaimedJobsList){
-            job.setNextExecutionAt(now.plus(1, ChronoUnit.HOURS));
+            if (job.getScheduleType() == com.scheduling.schedulingservice.enums.ScheduledType.CRON && job.getCronExpression() != null) {
+                try {
+                    org.springframework.scheduling.support.CronExpression cron = 
+                        org.springframework.scheduling.support.CronExpression.parse(job.getCronExpression());
+                    Instant next = cron.next(now.atZone(java.time.ZoneId.of("UTC"))).toInstant();
+                    job.setNextExecutionAt(next);
+                } catch (Exception e) {
+                    log.error("Failed to parse CRON for job " + job.getId(), e);
+                    job.setStatus(JobStatus.FAILED);
+                }
+            } else {
+                job.setStatus(JobStatus.COMPLETED);
+            }
         }
         jobRepository.saveAll(unclaimedJobsList);
     }

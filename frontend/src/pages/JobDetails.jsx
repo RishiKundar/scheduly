@@ -1,95 +1,134 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { AlertTriangle, ArrowLeft, Terminal } from 'lucide-react';
 import api from '../api/axiosConfig';
 
 export default function JobDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const [job, setJob] = useState(null);
     const [executions, setExecutions] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchExecutions = async () => {
+        const fetchData = async () => {
             try {
-                const response = await api.get(`/api/jobs/${id}/executions`);
-                setExecutions(response.data);
+                const [jobRes, execRes] = await Promise.all([
+                    api.get(`/api/jobs/${id}`),
+                    api.get(`/api/jobs/${id}/executions`)
+                ]);
+                setJob(jobRes.data);
+                setExecutions(execRes.data);
             } catch (error) {
-                console.error("Error fetching executions:", error);
+                console.error("Error fetching data:", error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchExecutions();
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
+        return () => clearInterval(interval);
     }, [id]);
 
     const getStatusBadge = (status) => {
         const styles = {
-            SUCCESS: 'bg-green-100 text-green-800',
-            FAILED: 'bg-red-100 text-red-800',
-            DEAD_LETTER: 'bg-red-200 text-red-900',
-            RUNNING: 'bg-yellow-100 text-yellow-800',
-            RETRYING: 'bg-orange-100 text-orange-800',
-            QUEUED: 'bg-blue-100 text-blue-800'
+            SUCCESS: 'bg-green-950/50 text-green-400 border border-green-500/50',
+            FAILED: 'bg-red-950/50 text-red-400 border border-red-500/50',
+            DEAD_LETTER: 'bg-red-950/80 text-red-500 border border-red-600',
+            RUNNING: 'bg-yellow-950/50 text-yellow-400 border border-yellow-500/50',
+            RETRYING: 'bg-orange-950/50 text-orange-400 border border-orange-500/50',
+            QUEUED: 'bg-blue-950/50 text-blue-400 border border-blue-500/50'
         };
-        const style = styles[status] || 'bg-gray-100 text-gray-800';
+        const style = styles[status] || 'bg-gray-900/50 text-gray-400 border border-gray-700';
         return (
-            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${style}`}>
+            <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-bold uppercase tracking-wider rounded border shadow-[0_0_10px_rgba(0,0,0,0.5)] ${style}`}>
                 {status}
             </span>
         );
     };
 
     return (
-        <div className="max-w-7xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center space-x-4">
-                    <button onClick={() => navigate('/dashboard')} className="text-gray-500 hover:text-gray-700">
-                        &larr; Back
+        <div className="max-w-7xl mx-auto space-y-6 py-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-950/80 backdrop-blur-md p-6 rounded-xl border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.1)]">
+                <div className="flex flex-col">
+                    <button onClick={() => navigate(-1)} className="text-emerald-500 hover:text-emerald-300 flex items-center text-sm font-bold uppercase tracking-widest mb-4 transition-colors">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Return
                     </button>
-                    <h1 className="text-2xl font-semibold text-gray-900">Execution History</h1>
+                    <div className="flex items-center space-x-4">
+                        <div className="w-10 h-10 bg-emerald-950 rounded-full flex items-center justify-center border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                            <Terminal className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-emerald-400 uppercase tracking-wider">
+                                {job ? job.name : 'Process Node'}
+                            </h1>
+                            <p className="text-emerald-500/60 text-xs uppercase tracking-widest">Execution Log</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-gray-200">
+            {job?.status === 'DELETED' && (
+                <div className="bg-amber-950/40 border border-amber-500/50 p-4 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+                    <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 mr-3 flex-shrink-0" />
+                        <div>
+                            <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest">
+                                Warning: Process Terminated (Read Only)
+                            </h3>
+                            <div className="mt-1 text-sm text-amber-500/80 font-sans">
+                                This process has been stopped and marked for deletion. No new executions will be scheduled. 
+                                The system garbage collector will permanently purge this node during the next cycle.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="bg-gray-950/80 backdrop-blur-md overflow-hidden sm:rounded-xl border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.05)]">
                 {loading ? (
-                    <div className="p-6 text-center text-gray-500">Loading history...</div>
+                    <div className="p-12 text-center text-emerald-700 font-bold uppercase tracking-widest animate-pulse">
+                        Scanning history...
+                    </div>
                 ) : (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Execution ID</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scheduled For</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completed At</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Worker ID</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {executions.length === 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-emerald-500/20">
+                            <thead className="bg-gray-900/50">
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                                        No executions recorded yet.
-                                    </td>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-emerald-500/70 uppercase tracking-widest">PID</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-emerald-500/70 uppercase tracking-widest">Status</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-emerald-500/70 uppercase tracking-widest">Scheduled</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-emerald-500/70 uppercase tracking-widest">Completed</th>
+                                    <th className="px-6 py-4 text-left text-xs font-bold text-emerald-500/70 uppercase tracking-widest">Assigned Worker</th>
                                 </tr>
-                            ) : (
-                                executions.map((exec) => (
-                                    <tr key={exec.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">{exec.id}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(exec.status)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {new Date(exec.scheduledFor).toLocaleString()}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {exec.completedAt ? new Date(exec.completedAt).toLocaleString() : '-'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                                            {exec.workerId || '-'}
+                            </thead>
+                            <tbody className="divide-y divide-emerald-500/10">
+                                {executions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="px-6 py-12 text-center text-emerald-700 font-bold uppercase tracking-widest">
+                                            No execution telemetry found.
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    executions.map((exec) => (
+                                        <tr key={exec.id} className="hover:bg-emerald-900/20 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-emerald-400">#{exec.id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(exec.status)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-100 font-sans">
+                                                {new Date(exec.scheduledFor).toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-100 font-sans">
+                                                {exec.completedAt ? new Date(exec.completedAt).toLocaleString() : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-500/70 font-mono">
+                                                {exec.workerId || 'Pending Assignment'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
         </div>

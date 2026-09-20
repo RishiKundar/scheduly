@@ -1,6 +1,8 @@
 package com.scheduling.schedulingservice.entity;
 
 
+import com.scheduling.schedulingservice.enums.JobStatus;
+import com.scheduling.schedulingservice.enums.ScheduledType;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -8,6 +10,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -30,7 +33,8 @@ public class Job {
     private String name;
 
     @Column(name = "status", nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private JobStatus status;
 
     @Column(name = "target_url", nullable = false)
     private String targetUrl;
@@ -45,7 +49,8 @@ public class Job {
     private String payload;
 
     @Column(name = "schedule_type", nullable = false)
-    private String scheduleType;
+    @Enumerated(EnumType.STRING)
+    private ScheduledType scheduleType;
 
     @Column(name = "cron_expression")
     private String cronExpression;
@@ -58,6 +63,9 @@ public class Job {
 
     @Column(name = "max_retries", nullable = false)
     private Integer maxRetries;
+
+    @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<JobExecution> executions;
 
 
 }

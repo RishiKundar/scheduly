@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -22,14 +23,15 @@ public class JobExecution {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "job_id")
-    private UUID jobId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_id", nullable = false)
+    private Job job;
 
     @Column(name = "status", nullable = false)
     private String status;
 
     @Column(name = "scheduled_for", nullable = false)
-    private Instant ScheduledFor;
+    private Instant scheduledFor;
 
     @Column(name = "started_at")
     private Instant startedAt;
@@ -42,5 +44,8 @@ public class JobExecution {
 
     @Column(name = "lease_expiry_at")
     private Instant leaseExpiryAt;
+
+    @OneToMany(mappedBy = "jobExecution", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<JobAttempt> attempts;
 
 }

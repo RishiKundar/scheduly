@@ -22,8 +22,9 @@ public class JobAttempt {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "execution_id", nullable = false)
-    private UUID executionId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "execution_id", nullable = false)
+    private JobExecution jobExecution;
 
     @Column(name = "attempt_number", nullable = false)
     private Integer attemptNumber;

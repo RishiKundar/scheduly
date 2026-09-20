@@ -38,5 +38,18 @@ public interface JobExecutionRepository extends JpaRepository<JobExecution, UUID
 """)
     List<JobExecution> claimRecoveryExecutions(@Param("now") Instant now, @Param("batchsize") int batchsize);
 
-    List<JobExecution> findByJobIdOrderByScheduledForDesc(UUID jobId);
+    List<JobExecution> findByJob_IdOrderByScheduledForDesc(UUID jobId);
+
+    @Query("SELECT je.status, count(je) FROM JobExecution je JOIN je.job j WHERE j.userId = :userId GROUP BY je.status")
+    List<Object[]> countExecutionsByStatus(@Param("userId") UUID userId);
+
+    @Query(nativeQuery = true, value = """
+        SELECT date_trunc('hour', je.started_at) as hour_bucket, je.status, count(je.id)
+        FROM job_scheduler_clean.job_executions je
+        JOIN job_scheduler_clean.jobs j ON je.job_id = j.id
+        WHERE j.user_id = :userId AND je.started_at >= :since
+        GROUP BY date_trunc('hour', je.started_at), je.status
+        ORDER BY hour_bucket ASC
+    """)
+    List<Object[]> getHourlyMetrics(@Param("userId") UUID userId, @Param("since") Instant since);
 }

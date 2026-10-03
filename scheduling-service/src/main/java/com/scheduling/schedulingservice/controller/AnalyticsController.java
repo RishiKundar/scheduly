@@ -1,12 +1,16 @@
 package com.scheduling.schedulingservice.controller;
 
 import com.scheduling.schedulingservice.dto.AnalyticsResponseDto;
+import com.scheduling.schedulingservice.entity.User;
 import com.scheduling.schedulingservice.service.AnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/analytics")
@@ -17,6 +21,11 @@ public class AnalyticsController {
 
     @GetMapping("/dashboard")
     public ResponseEntity<AnalyticsResponseDto> getDashboardMetrics() {
-        return ResponseEntity.ok(analyticsService.getDashboardAnalytics());
+        UUID userId = getCurrentUserID();
+        return ResponseEntity.ok(analyticsService.getDashboardAnalytics(userId));
+    }
+
+    private UUID getCurrentUserID() {
+        return ((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getId();
     }
 }

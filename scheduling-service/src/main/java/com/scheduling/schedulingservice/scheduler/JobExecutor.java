@@ -1,11 +1,13 @@
 package com.scheduling.schedulingservice.scheduler;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scheduling.schedulingservice.client.WebhookClient;
 import com.scheduling.schedulingservice.entity.Job;
 import com.scheduling.schedulingservice.entity.JobAttempt;
 import com.scheduling.schedulingservice.entity.JobExecution;
+import com.scheduling.schedulingservice.enums.ExecutionStatus;
 import com.scheduling.schedulingservice.repo.JobAttemptRepository;
 import com.scheduling.schedulingservice.repo.JobExecutionRepository;
 import com.scheduling.schedulingservice.repo.JobRepository;
@@ -18,7 +20,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientResponseException;
-import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -33,7 +34,7 @@ public class JobExecutor {
     private final JobRepository jobRepository;
     private final JobExecutionRepository jobExecutionRepository;
     private final JobAttemptRepository jobAttemptRepository;
-    private final RestTemplate restTemplate;
+    private final WebhookClient webhookClient;
     private final EncryptionUtil encryptionUtil;
 
     public void execute(UUID executionId){
@@ -60,8 +61,8 @@ public class JobExecutor {
             HttpEntity<String> requestEntity = new HttpEntity<>(payload,httpHeaders);
             try{
                 jobAttemptRepository.save(jobAttempt);
-                ResponseEntity<String> response = restTemplate.exchange(url,method,requestEntity,String.class);
-                jobExecution.setStatus("SUCCESS");
+                ResponseEntity<String> response = webhookClient.customExchanger(url,method,requestEntity);
+                jobExecution.setStatus(ExecutionStatus.SUCCESS);
                 jobAttempt.setEndedAt(Instant.now());
                 jobAttempt.setHttpStatusCode(response.getStatusCode().value());
                 jobAttempt.setResponseBody(response.getBody());
@@ -114,14 +115,14 @@ public class JobExecutor {
 
     private void handleFailure(JobExecution jobExecution, JobAttempt jobAttempt, Job job){
         if(jobAttempt.getAttemptNumber() < job.getMaxRetries()){
-            jobExecution.setStatus("RETRYING");
+            jobExecution.setStatus(ExecutionStatus.RETRYING);
             long secondsToWait = jobAttempt.getAttemptNumber() * 10;
             jobExecution.setScheduledFor(Instant.now().plusSeconds(secondsToWait));
             jobExecution.setWorkerId(null);
             jobExecution.setLeaseExpiryAt(null);
             log.warn("Execution {} failed, will retry at {}", jobExecution.getId(), jobExecution.getScheduledFor());
         }else{
-            jobExecution.setStatus("DEAD_LETTER");
+            jobExecution.setStatus(ExecutionStatus.DEAD_LETTER);
             log.error("Execution {} permanently failed after {} attempts", jobExecution.getId(), jobAttempt.getAttemptNumber());
         }
     }

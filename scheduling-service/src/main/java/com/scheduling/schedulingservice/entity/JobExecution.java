@@ -1,6 +1,7 @@
 package com.scheduling.schedulingservice.entity;
 
 
+import com.scheduling.schedulingservice.enums.ExecutionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -28,7 +29,8 @@ public class JobExecution {
     private Job job;
 
     @Column(name = "status", nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private ExecutionStatus status;
 
     @Column(name = "scheduled_for", nullable = false)
     private Instant scheduledFor;

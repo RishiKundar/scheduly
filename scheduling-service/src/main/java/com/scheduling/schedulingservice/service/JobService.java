@@ -5,12 +5,15 @@ import com.scheduling.schedulingservice.dto.JobRequest;
 import com.scheduling.schedulingservice.dto.JobResponseDto;
 import com.scheduling.schedulingservice.entity.Job;
 import com.scheduling.schedulingservice.entity.JobExecution;
+import com.scheduling.schedulingservice.entity.OutBoxEvent;
 import com.scheduling.schedulingservice.entity.User;
+import com.scheduling.schedulingservice.enums.ExecutionStatus;
 import com.scheduling.schedulingservice.enums.JobStatus;
 import com.scheduling.schedulingservice.enums.ScheduledType;
 import com.scheduling.schedulingservice.exception.JobException;
 import com.scheduling.schedulingservice.repo.JobExecutionRepository;
 import com.scheduling.schedulingservice.repo.JobRepository;
+import com.scheduling.schedulingservice.repo.OutBoxEventRepository;
 import com.scheduling.schedulingservice.repo.UserRepository;
 import com.scheduling.schedulingservice.util.EncryptionUtil;
 import com.scheduling.schedulingservice.validator.SsrfValidator;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -35,6 +39,7 @@ public class JobService {
     private final JobExecutionRepository jobExecutionRepository;
     private final UserRepository userRepository;
     private final EncryptionUtil encryptionUtil;
+    private final OutBoxEventRepository outBoxEventRepository;
 
     public void createJob(JobRequest jobRequest){
 
@@ -146,5 +151,32 @@ public class JobService {
             throw new JobException("Unauthorized to view this job");
         }
         return jobExecutionRepository.findByJob_IdOrderByScheduledForDesc(jobId);
+    }
+
+
+    public void replayDlq(UUID jobId){
+        UUID userId = getCurrentUserID();
+        Optional<Job> jobOptional = jobRepository.findById(jobId);
+        if(jobOptional.isPresent()){
+            Job job = jobOptional.get();
+            if(job.getUserId().equals(userId)){
+                List<JobExecution> dlqJobs = jobExecutionRepository.findByStatusAndJob_Id(ExecutionStatus.DEAD_LETTER, jobId);
+                if(!dlqJobs.isEmpty()){
+                    for(JobExecution jobExecution : dlqJobs){
+                        jobExecution.setStatus(ExecutionStatus.QUEUED);
+                        jobExecution.setWorkerId(null);
+                        jobExecution.setScheduledFor(Instant.now());
+                        jobExecution.setLeaseExpiryAt(null);
+
+                        OutBoxEvent outBoxEvent = new OutBoxEvent();
+                        outBoxEvent.setAggregateType("JobExecution");
+                        outBoxEvent.setAggregateId(jobExecution.getId().toString());
+                        outBoxEvent.setType("ExecutionDispatched");
+                        outBoxEventRepository.save(outBoxEvent);
+                    }
+                    jobExecutionRepository.saveAll(dlqJobs);
+                }
+            }
+        }
     }
 }

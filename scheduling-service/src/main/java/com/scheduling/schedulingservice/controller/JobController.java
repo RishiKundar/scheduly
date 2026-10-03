@@ -45,4 +45,10 @@ public class JobController {
         return ResponseEntity.ok(jobService.getJobExecutions(id));
     }
 
+    @PostMapping("/jobs/{jobId}/replay-dlq")
+    public ResponseEntity<String> replayDlq(@PathVariable UUID jobId){
+        jobService.replayDlq(jobId);
+        return ResponseEntity.ok("Jobs is Replayed and sent to queue");
+    }
+
 }

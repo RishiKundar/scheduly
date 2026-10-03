@@ -6,6 +6,15 @@ service:
     name: job_scheduler_clean
 
 spring:
+  threads:
+    virtual:
+      enabled: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
   application:
     name: scheduling-service
 
@@ -48,4 +57,13 @@ sch:
   secret:
     jwt-secret: ${JWT_SECRET_KEY}
     encrypt-secret: ${ENCRYPTION_KEY}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      webhook:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
 

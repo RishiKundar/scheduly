@@ -4,6 +4,7 @@ package com.scheduling.schedulingservice.scheduler;
 import com.scheduling.schedulingservice.entity.Job;
 import com.scheduling.schedulingservice.entity.JobExecution;
 import com.scheduling.schedulingservice.entity.OutBoxEvent;
+import com.scheduling.schedulingservice.enums.ExecutionStatus;
 import com.scheduling.schedulingservice.enums.JobStatus;
 import com.scheduling.schedulingservice.repo.JobExecutionRepository;
 import com.scheduling.schedulingservice.repo.JobRepository;
@@ -12,12 +13,10 @@ import com.scheduling.schedulingservice.repo.OutBoxEventRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Component
@@ -43,7 +42,7 @@ public class SchedulerService {
         for(Job job : unclaimedJobsList){
             JobExecution jobExecution = new JobExecution();
             jobExecution.setJob(jobExecution.getJob());
-            jobExecution.setStatus("QUEUED");
+            jobExecution.setStatus(ExecutionStatus.QUEUED);
             jobExecution.setScheduledFor(job.getNextExecutionAt());
             jobExecutionRepository.save(jobExecution);
 
@@ -74,6 +73,7 @@ public class SchedulerService {
     }
 
 
+
     @Scheduled(fixedDelay = 10000)
     public void recoveryLoop(){
         Instant now  = Instant.now();
@@ -84,7 +84,7 @@ public class SchedulerService {
         }
 
         for (JobExecution jobExecution : jobExecutions){
-            jobExecution.setStatus("QUEUED");
+            jobExecution.setStatus(ExecutionStatus.QUEUED);
             jobExecution.setWorkerId(null);
             jobExecution.setLeaseExpiryAt(null);
 

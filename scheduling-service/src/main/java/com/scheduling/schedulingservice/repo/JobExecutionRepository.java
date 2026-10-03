@@ -1,6 +1,7 @@
 package com.scheduling.schedulingservice.repo;
 
 import com.scheduling.schedulingservice.entity.JobExecution;
+import com.scheduling.schedulingservice.enums.ExecutionStatus;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -52,4 +53,7 @@ public interface JobExecutionRepository extends JpaRepository<JobExecution, UUID
         ORDER BY hour_bucket ASC
     """)
     List<Object[]> getHourlyMetrics(@Param("userId") UUID userId, @Param("since") Instant since);
+
+
+    List<JobExecution> findByStatusAndJob_Id(ExecutionStatus status, UUID jobId);
 }

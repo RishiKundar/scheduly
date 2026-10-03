@@ -7,6 +7,7 @@ import com.scheduling.schedulingservice.enums.JobStatus;
 import com.scheduling.schedulingservice.repo.JobExecutionRepository;
 import com.scheduling.schedulingservice.repo.JobRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -28,9 +29,8 @@ public class AnalyticsService {
         return ((User) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getId();
     }
 
-    public AnalyticsResponseDto getDashboardAnalytics() {
-        UUID userId = getCurrentUserID();
-
+    @Cacheable(value = "dashboardAnalytics", key = "#userId")
+    public AnalyticsResponseDto getDashboardAnalytics(UUID userId) {
         long totalJobs = jobRepository.countByUserId(userId);
         long activeJobs = jobRepository.countByUserIdAndStatus(userId, JobStatus.ACTIVE);
 
